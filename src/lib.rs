@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
+use std::{fs, string};
 
 #[derive(Debug)]
 struct Santa {
@@ -10,13 +10,16 @@ struct Santa {
     history: Vec<Option<String>>,
 }
 
+type SantaMap = HashMap<String, Santa>;
+type Connections = HashMap<String, Vec<String>>;
+
 /// Read csv file and update `santas` hashmap
 ///
 /// # Arguments
 ///
 /// * `santas` - Mutable reference to hashmap
 /// * `filename` - Path to read
-fn read_family_csv(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
+fn read_family_csv(santas: &mut SantaMap, filename: &PathBuf) {
     let text = fs::read_to_string(filename.join("family.csv")).unwrap();
     let mut lines = text.split("\n");
     let header: Vec<&str> = lines.next().unwrap().split(",").collect();
@@ -42,7 +45,7 @@ fn read_family_csv(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
 ///
 /// * `santas` - Mutable reference to hashmap
 /// * `filename` - Path to read
-fn set_history(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
+fn set_history(santas: &mut SantaMap, filename: &PathBuf) {
     let text = fs::read_to_string(filename.join("history.csv")).unwrap();
     let lines: Vec<&str> = text.split("\n").collect();
 
@@ -61,7 +64,7 @@ fn set_history(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
         }
         let santa = santas.get_mut(name).unwrap();
 
-        for row_idx in 1..lines.len() {
+        for row_idx in lines.len()..1 {
             if lines[row_idx].trim().is_empty() {
                 continue;
             }
@@ -77,18 +80,74 @@ fn set_history(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
     }
 }
 
-fn make_santas(data_path: &PathBuf) -> HashMap<String, Santa> {
-    let mut santas: HashMap<String, Santa> = HashMap::new();
+fn set_possible_recipients(
+    santa_name: &String,
+    santas: &SantaMap,
+    exclude_history: Option<usize>,
+) -> Vec<String> {
+    let exclude_size = match exclude_history {
+        None => 0,
+        Some(value) => value,
+    };
+
+    let mut recips = vec![];
+
+    let santa = &santas[santa_name];
+
+    for key in santas.keys() {
+        if *key == santa.name {
+            continue;
+        }
+
+        let person = &santas[key];
+
+        if person.clan == santa.clan {
+            continue;
+        }
+
+        let mut santa_in_history: bool = false;
+        if exclude_size > 0 {
+            for (idx, item) in person.history.iter().enumerate() {
+                if idx < exclude_size && item.is_some() {
+                    if item.as_deref().unwrap() == santa.name {
+                        santa_in_history = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if santa_in_history {
+            continue;
+        }
+        recips.push(key.clone());
+    }
+
+    return recips;
+}
+
+fn make_santas(data_path: &PathBuf) -> (SantaMap, Connections) {
+    let mut santas: SantaMap = HashMap::new();
+    let mut possible_recipients: Connections = HashMap::new();
+
     read_family_csv(&mut santas, data_path);
     set_history(&mut santas, data_path);
-    return santas;
+    for santa_name in santas.keys() {
+        possible_recipients.insert(
+            santa_name.clone(),
+            set_possible_recipients(santa_name, &santas, Some(1)),
+        );
+    }
+    return (santas, possible_recipients);
 }
 
 pub fn generate(data_path: &PathBuf) {
-    let santas = make_santas(&data_path);
+    let (santas, connections) = make_santas(&data_path);
 
     for santa in santas {
         println!("{:#?}", santa);
+    }
+    for (santa_name, recips) in connections.iter() {
+        println!("{}: {:#?}", santa_name, recips);
     }
 }
 
@@ -103,7 +162,7 @@ mod tests {
         let data_path = env::current_dir().unwrap().join("src/test_data");
         // println!("data_path: {:#?}", data_path);
 
-        let santas = make_santas(&data_path);
+        let (santas, connections) = make_santas(&data_path);
         assert_eq!(santas.len(), 12);
 
         let groups = vec!["Simpson", "Flanders", "Van Houten"];
@@ -112,6 +171,10 @@ mod tests {
             let santa = &santas[name];
             assert!(groups.contains(&&santa.clan.as_str()));
             assert!(santa.email_address.ends_with("@example.com"));
+        }
+
+        for (santa_name, recips) in connections.iter() {
+            assert!(!recips.contains(santa_name));
         }
     }
 }
