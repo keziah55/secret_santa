@@ -10,7 +10,7 @@ struct Santa {
     history: Vec<Option<String>>,
 }
 
-/// Read csv file as polars DataFrame
+/// Read csv file and update `santas` hashmap
 ///
 /// # Arguments
 ///
@@ -38,7 +38,7 @@ fn read_family_csv(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
     }
 }
 
-/// Read `history.csv` and add data to map of `Santas`
+/// Read `history.csv` and update `santas` hashmap
 ///
 /// * `santas` - Mutable reference to hashmap
 /// * `filename` - Path to read
