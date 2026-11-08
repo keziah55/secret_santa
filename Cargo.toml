@@ -1,7 +1,8 @@
 [package]
 name = "secret_santa"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 
 [dependencies]
-polars = "0.55.2"
+clap = { version = "4.6.7", features = ["derive"] }
+polars = { version = "0.55.2", features = ["csv", "polars-io"] }
