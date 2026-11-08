@@ -7,29 +7,23 @@ struct Santa {
     name: String,
     clan: String,
     email_address: String,
-    history: Option<Vec<Option<String>>>,
+    history: Vec<Option<String>>,
 }
 
 /// Read csv file as polars DataFrame
 ///
 /// # Arguments
 ///
-/// * `filename` - Path to read.
-///
-/// # Returns
-///
-/// * `HashMap<String, Santa>` - Map of name and Sata``
-fn read_family_csv(santas: &mut HashMap<String, Santa>, filename: &PathBuf)  {
-    
-
-    
+/// * `santas` - Mutable reference to hashmap
+/// * `filename` - Path to read
+fn read_family_csv(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
     let text = fs::read_to_string(filename.join("family.csv")).unwrap();
     let mut lines = text.split("\n");
     let header: Vec<&str> = lines.next().unwrap().split(",").collect();
 
-    let name_idx = header.binary_search(&"name").unwrap();
-    let group_idx = header.binary_search(&"group").unwrap();
-    let email_idx = header.binary_search(&"email").unwrap();
+    let name_idx = header.iter().position(|&s| s == "name").unwrap();
+    let group_idx = header.iter().position(|&s| s == "group").unwrap();
+    let email_idx = header.iter().position(|&s| s == "email").unwrap();
 
     for line in lines {
         let row: Vec<&str> = line.split(",").collect();
@@ -38,22 +32,27 @@ fn read_family_csv(santas: &mut HashMap<String, Santa>, filename: &PathBuf)  {
             name: name.to_string(),
             clan: row[group_idx].to_string(),
             email_address: row[email_idx].to_string(),
-            history: None,
+            history: vec![],
         };
         santas.insert(name, santa);
     }
-
 }
 
+/// Read `history.csv` and add data to map of `Santas`
+///
+/// * `santas` - Mutable reference to hashmap
+/// * `filename` - Path to read
 fn set_history(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
     let text = fs::read_to_string(filename.join("history.csv")).unwrap();
     let lines: Vec<&str> = text.split("\n").collect();
 
+    // get header row from `lines`
     let header: Vec<&str> = lines.first().unwrap().split(",").collect();
 
+    // iterate over columns of data
     for idx in 0..header.len() {
         let name = header[idx];
-        if name == "" {
+        if name.trim().is_empty() {
             continue;
         }
 
@@ -62,24 +61,23 @@ fn set_history(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
         }
         let santa = santas.get_mut(name).unwrap();
 
-        let mut column: Vec<Option<String>> = vec![];
         for row_idx in 1..lines.len() {
+            if lines[row_idx].trim().is_empty() {
+                continue;
+            }
+
             let row: Vec<&str> = lines[row_idx].split(",").collect();
             let value = if row[idx] == "" {
                 None
             } else {
                 Some(row[idx].to_string())
             };
-            column.push(value.clone());
+            santa.history.push(value.clone());
         }
-        // contents.insert(name.to_string(), column);
-
-        santa.history = Some(column);
     }
 }
 
 pub fn generate(data_path: &PathBuf) {
-
     let mut santas: HashMap<String, Santa> = HashMap::new();
     read_family_csv(&mut santas, data_path);
     set_history(&mut santas, data_path);
