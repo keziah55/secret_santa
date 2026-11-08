@@ -77,10 +77,15 @@ fn set_history(santas: &mut HashMap<String, Santa>, filename: &PathBuf) {
     }
 }
 
-pub fn generate(data_path: &PathBuf) {
+fn make_santas(data_path: &PathBuf) -> HashMap<String, Santa> {
     let mut santas: HashMap<String, Santa> = HashMap::new();
     read_family_csv(&mut santas, data_path);
     set_history(&mut santas, data_path);
+    return santas;
+}
+
+pub fn generate(data_path: &PathBuf) {
+    let santas = make_santas(&data_path);
 
     for santa in santas {
         println!("{:#?}", santa);
@@ -88,12 +93,25 @@ pub fn generate(data_path: &PathBuf) {
 }
 
 // TESTS
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use rstest::rstest;
-//     #[test]
-//     fn test_get_santa_data() {
-//         let data_path = Path();
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use std::env;
+    #[test]
+    fn test_get_santa_data() {
+        let data_path = env::current_dir().unwrap().join("src/test_data");
+        // println!("data_path: {:#?}", data_path);
+
+        let santas = make_santas(&data_path);
+        assert_eq!(santas.len(), 12);
+
+        let groups = vec!["Simpson", "Flanders", "Van Houten"];
+
+        for name in santas.keys() {
+            let santa = &santas[name];
+            assert!(groups.contains(&&santa.clan.as_str()));
+            assert!(santa.email_address.ends_with("@example.com"));
+        }
+    }
+}
