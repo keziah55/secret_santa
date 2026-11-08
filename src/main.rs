@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use clap::Parser;
 
 #[derive(Parser)]
@@ -9,7 +10,7 @@ pub struct Cli {
 }
 
 fn main() {
-    let cli = secret_santa::Cli::parse();
+    let cli = Cli::parse();
     let data_path = PathBuf::from(cli.data_path);
-    secret_santa::generate(data_path);
+    secret_santa::generate(&data_path);
 }
