@@ -7,10 +7,14 @@ use clap::Parser;
 pub struct Cli {
     /// Path to dir of csv files defining people
     data_path: String,
+
+    /// Update `history.csv` file
+    #[arg(short = 'u', long)]
+    update: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
     let data_path = PathBuf::from(cli.data_path);
-    secret_santa::generate(&data_path);
+    secret_santa::generate(&data_path, cli.update);
 }
