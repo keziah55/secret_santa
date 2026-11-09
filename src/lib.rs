@@ -58,6 +58,8 @@ fn set_history(santas: &mut SantaMap, data_path: &PathBuf) {
         return;
     }
 
+    println!("set_history");
+
     let text = fs::read_to_string(csv_file).unwrap();
     let lines: Vec<&str> = text.split("\n").collect();
 
@@ -76,7 +78,7 @@ fn set_history(santas: &mut SantaMap, data_path: &PathBuf) {
         }
         let santa = santas.get_mut(name).unwrap();
 
-        for row_idx in lines.len()..1 {
+        for row_idx in (1..lines.len()).rev() {
             if lines[row_idx].trim().is_empty() {
                 continue;
             }
@@ -174,7 +176,6 @@ pub fn generate(data_path: &PathBuf) {
         if recips.is_empty() {
             let removed = gift_chain.pop().unwrap();
             println!("No valid recipients for {}. Backtracking.", removed);
-            
         } else {
             let recip = recips.into_iter().choose(&mut rng).unwrap();
             gift_chain.push(recip);
@@ -182,7 +183,7 @@ pub fn generate(data_path: &PathBuf) {
             println!("Gift chain:");
             for (n, name) in gift_chain.iter().enumerate() {
                 print!("{}", name);
-                if n < gift_chain.len()-1 {
+                if n < gift_chain.len() - 1 {
                     print!(" -> ");
                 }
             }
