@@ -21,10 +21,9 @@ type SantaMap = HashMap<String, Santa>;
 /// * `data_path` - Path to dir containing csv files
 fn read_family_csv(santas: &mut SantaMap, data_path: &PathBuf) {
     let csv_file = data_path.join("family.csv");
-    if !csv_file.exists(){
+    if !csv_file.exists() {
         panic!("No 'family.csv' file found: {:?}", csv_file);
     }
-
 
     let text = fs::read_to_string(csv_file).unwrap();
     let mut lines = text.split("\n");
@@ -48,16 +47,15 @@ fn read_family_csv(santas: &mut SantaMap, data_path: &PathBuf) {
 }
 
 /// Read `history.csv` and update `santas` HashMap
-/// 
+///
 /// If `history.csv` does not exist in `data_path`, this function does nothing.
 ///
 /// * `santas` - HashMap of all Santas; `history` fields are populated by this function
 /// * `data_path` - Path to dir containing csv files
 fn set_history(santas: &mut SantaMap, data_path: &PathBuf) {
-
     let csv_file = data_path.join("history.csv");
-    if !csv_file.exists(){
-        return
+    if !csv_file.exists() {
+        return;
     }
 
     let text = fs::read_to_string(csv_file).unwrap();
@@ -99,17 +97,18 @@ fn set_history(santas: &mut SantaMap, data_path: &PathBuf) {
 /// # Arguments
 ///
 /// * `recips` - Vector to write recipients to
-/// * `santa_name` - Name of Santa for these recipients
 /// * `santas` - HashMap of all Santas
-/// * `gift_chain` - Current gift chain
+/// * `gift_chain` - Current gift chain. The last item is taken as the Santa to get
+///    recipients for
 /// * `exclude_size` - Number of history years to exclude
 fn get_possible_recipients(
     recips: &mut Vec<String>,
-    santa_name: &String,
+    // santa_name: &String,
     santas: &SantaMap,
     gift_chain: &Vec<String>,
     exclude_size: usize,
 ) {
+    let santa_name = gift_chain.last().unwrap();
     let santa = &santas[santa_name];
 
     for key in santas.keys() {
@@ -145,9 +144,9 @@ fn get_possible_recipients(
 }
 
 /// Make HashMap of all Santa info, from csv files.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `data_path` - Path to dir containing `family.csv` and `history.csv`
 fn make_santas(data_path: &PathBuf) -> SantaMap {
     let mut santas: SantaMap = HashMap::new();
@@ -168,20 +167,28 @@ pub fn generate(data_path: &PathBuf) {
     let start = santas.keys().choose(&mut rng).unwrap();
     gift_chain.push(start.to_string());
 
-    let mut recips: Vec<String> = vec![];
+    while gift_chain.len() < santas.len() {
+        let mut recips: Vec<String> = vec![];
+        get_possible_recipients(&mut recips, &santas, &gift_chain, 1);
 
-    get_possible_recipients(&mut recips, &start, &santas, &gift_chain, 1);
+        if recips.is_empty() {
+            let removed = gift_chain.pop().unwrap();
+            println!("No valid recipients for {}. Backtracking.", removed);
+            
+        } else {
+            let recip = recips.into_iter().choose(&mut rng).unwrap();
+            gift_chain.push(recip);
 
-    if recips.is_empty() {
-        println!("No valid recipients for {}. Backtracking.", *start);
-    } else {
-        let recip = recips.into_iter().choose(&mut rng).unwrap();
-        println!("{} -> {}", *start, recip);
+            println!("Gift chain:");
+            for (n, name) in gift_chain.iter().enumerate() {
+                print!("{}", name);
+                if n < gift_chain.len()-1 {
+                    print!(" -> ");
+                }
+            }
+            println!();
+        }
     }
-
-    // for santa in santas {
-    //     println!("{:#?}", santa);
-    // }
 }
 
 // TESTS
