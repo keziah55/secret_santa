@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use rand::seq::IteratorRandom;
 use std::collections::HashMap;
 use std::fs;
@@ -48,11 +49,38 @@ fn read_family_csv(santas: &mut SantaMap, data_path: &PathBuf) {
     }
 }
 
-fn read_history_csv(data_path: &PathBuf) -> (Vec<String>, Vec<String>) {
+/// Return path to `history.csv`
+/// 
+/// Panic if file not found.
+/// 
+/// /// # Arguments
+/// 
+/// * `data_path` - Path to dir containing csv files
+/// 
+/// # Returns
+/// 
+/// * `PathBuf` - Path to `history.csv`
+fn get_history_csv(data_path: &PathBuf) -> PathBuf {
     let csv_file = data_path.join("history.csv");
     if !csv_file.exists() {
         panic!("No 'history.csv' file found: {:?}", csv_file);
     }
+    return csv_file;
+}
+
+/// Read `history.csv`
+/// 
+/// # Arguments
+/// 
+/// * `data_path` - Path to dir containing csv files
+/// 
+/// # Returns
+/// 
+/// * `Vec<String>` - Vector of header items
+/// * `Vec<String>` - Vector of lines. Note these are whole lines and are not split by
+///   value separator
+fn read_history_csv(data_path: &PathBuf) -> (Vec<String>, Vec<String>) {
+    let csv_file = get_history_csv(data_path);
 
     let text = fs::read_to_string(csv_file).unwrap();
     let lines: Vec<String> = text.split("\n").map(|s| s.to_string()).collect();
@@ -66,6 +94,13 @@ fn read_history_csv(data_path: &PathBuf) -> (Vec<String>, Vec<String>) {
         .collect();
 
     return (header, lines);
+}
+
+/// Append new line to `history.csv`
+fn append_history_csv(data_path: &PathBuf, new_line: String) {
+    let csv_file = data_path.join("history.csv");
+    let mut f = File::options().append(true).open(csv_file).unwrap();
+    writeln!(&mut f, "{new_line}").unwrap();
 }
 
 /// Read `history.csv` and update `santas` HashMap
@@ -124,11 +159,7 @@ fn update_history(data_path: &PathBuf, gift_chain: &Vec<String>, year: String) {
         new_line_values.push(gift_chain[idx].clone());
     }
 
-    let new_line = new_line_values.join(",");
-
-    let csv_file = data_path.join("history.csv");
-    let mut f = File::options().append(true).open(csv_file).unwrap();
-    writeln!(&mut f, "{new_line}").unwrap();
+    append_history_csv(data_path, new_line_values.join(","));
 }
 
 /// Fill `recips` vec with possible recipients for `santa_name`.
@@ -228,7 +259,8 @@ pub fn generate(data_path: &PathBuf, do_update_history: bool) {
     }
     println!();
     if do_update_history {
-        update_history(data_path, &gift_chain, String::from("2026"));
+        let year = format!("{}", chrono::Utc::now().year());
+        update_history(data_path, &gift_chain, year);
     }
 }
 
