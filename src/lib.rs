@@ -1,6 +1,7 @@
+use rand::seq::IteratorRandom;
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
-use std::{fs, string};
 
 #[derive(Debug)]
 struct Santa {
@@ -11,7 +12,6 @@ struct Santa {
 }
 
 type SantaMap = HashMap<String, Santa>;
-type Connections = HashMap<String, Vec<String>>;
 
 /// Read csv file and update `santas` hashmap
 ///
@@ -80,18 +80,22 @@ fn set_history(santas: &mut SantaMap, filename: &PathBuf) {
     }
 }
 
-fn set_possible_recipients(
+/// Fill `recips` vec with possible recipients for `santa_name`.
+/// 
+/// # Arguments
+/// 
+/// `recips` - Vector to write recipients to
+/// `santa_name` - Name of Santa for these recipients
+/// `santas` - HashMap of all Santas
+/// `gift_chain` - Current gift chain
+/// `exclude_size` - Number of history years to exclude
+fn get_possible_recipients(
+    recips: &mut Vec<String>,
     santa_name: &String,
     santas: &SantaMap,
-    exclude_history: Option<usize>,
-) -> Vec<String> {
-    let exclude_size = match exclude_history {
-        None => 0,
-        Some(value) => value,
-    };
-
-    let mut recips = vec![];
-
+    gift_chain: &Vec<String>,
+    exclude_size: usize,
+) {
     let santa = &santas[santa_name];
 
     for key in santas.keys() {
@@ -101,7 +105,8 @@ fn set_possible_recipients(
 
         let person = &santas[key];
 
-        if person.clan == santa.clan {
+        if person.clan == santa.clan || gift_chain.contains(&person.name) {
+            // person is in same group as santa or is already allocated
             continue;
         }
 
@@ -122,33 +127,43 @@ fn set_possible_recipients(
         recips.push(key.clone());
     }
 
-    return recips;
+    // return recips;
 }
 
-fn make_santas(data_path: &PathBuf) -> (SantaMap, Connections) {
+fn make_santas(data_path: &PathBuf) -> SantaMap {
     let mut santas: SantaMap = HashMap::new();
-    let mut possible_recipients: Connections = HashMap::new();
 
     read_family_csv(&mut santas, data_path);
     set_history(&mut santas, data_path);
-    for santa_name in santas.keys() {
-        possible_recipients.insert(
-            santa_name.clone(),
-            set_possible_recipients(santa_name, &santas, Some(1)),
-        );
-    }
-    return (santas, possible_recipients);
+
+    return santas;
 }
 
 pub fn generate(data_path: &PathBuf) {
-    let (santas, connections) = make_santas(&data_path);
+    let mut rng = rand::rng();
 
-    for santa in santas {
-        println!("{:#?}", santa);
+    let santas = make_santas(&data_path);
+
+    let mut gift_chain: Vec<String> = vec![];
+
+    let start = santas.keys().choose(&mut rng).unwrap();
+    gift_chain.push(start.to_string());
+
+    let mut recips: Vec<String> = vec![];
+
+    get_possible_recipients(&mut recips, &start, &santas, &gift_chain, 1);
+
+    if (recips.len() == 0) {
+        println!("No valid recipients for {}. Backtracking.", *start);
+    } else {
+        let recip = recips.into_iter().choose(&mut rng).unwrap();
+        println!("{} -> {}", *start, recip);
     }
-    for (santa_name, recips) in connections.iter() {
-        println!("{}: {:#?}", santa_name, recips);
-    }
+
+    // for santa in santas {
+    //     println!("{:#?}", santa);
+    // }
+
 }
 
 // TESTS
@@ -162,7 +177,7 @@ mod tests {
         let data_path = env::current_dir().unwrap().join("src/test_data");
         // println!("data_path: {:#?}", data_path);
 
-        let (santas, connections) = make_santas(&data_path);
+        let santas = make_santas(&data_path);
         assert_eq!(santas.len(), 12);
 
         let groups = vec!["Simpson", "Flanders", "Van Houten"];
@@ -171,10 +186,6 @@ mod tests {
             let santa = &santas[name];
             assert!(groups.contains(&&santa.clan.as_str()));
             assert!(santa.email_address.ends_with("@example.com"));
-        }
-
-        for (santa_name, recips) in connections.iter() {
-            assert!(!recips.contains(santa_name));
         }
     }
 }
