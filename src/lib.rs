@@ -13,14 +13,20 @@ struct Santa {
 
 type SantaMap = HashMap<String, Santa>;
 
-/// Read csv file and update `santas` hashmap
+/// Read csv file and update `santas` HashMap
 ///
 /// # Arguments
 ///
-/// * `santas` - Mutable reference to hashmap
-/// * `filename` - Path to read
-fn read_family_csv(santas: &mut SantaMap, filename: &PathBuf) {
-    let text = fs::read_to_string(filename.join("family.csv")).unwrap();
+/// * `santas` - Mutable reference to (empty) HashMap
+/// * `data_path` - Path to dir containing csv files
+fn read_family_csv(santas: &mut SantaMap, data_path: &PathBuf) {
+    let csv_file = data_path.join("family.csv");
+    if !csv_file.exists(){
+        panic!("No 'family.csv' file found: {:?}", csv_file);
+    }
+
+
+    let text = fs::read_to_string(csv_file).unwrap();
     let mut lines = text.split("\n");
     let header: Vec<&str> = lines.next().unwrap().split(",").collect();
 
@@ -41,12 +47,20 @@ fn read_family_csv(santas: &mut SantaMap, filename: &PathBuf) {
     }
 }
 
-/// Read `history.csv` and update `santas` hashmap
+/// Read `history.csv` and update `santas` HashMap
+/// 
+/// If `history.csv` does not exist in `data_path`, this function does nothing.
 ///
-/// * `santas` - Mutable reference to hashmap
-/// * `filename` - Path to read
-fn set_history(santas: &mut SantaMap, filename: &PathBuf) {
-    let text = fs::read_to_string(filename.join("history.csv")).unwrap();
+/// * `santas` - HashMap of all Santas; `history` fields are populated by this function
+/// * `data_path` - Path to dir containing csv files
+fn set_history(santas: &mut SantaMap, data_path: &PathBuf) {
+
+    let csv_file = data_path.join("history.csv");
+    if !csv_file.exists(){
+        return
+    }
+
+    let text = fs::read_to_string(csv_file).unwrap();
     let lines: Vec<&str> = text.split("\n").collect();
 
     // get header row from `lines`
@@ -81,14 +95,14 @@ fn set_history(santas: &mut SantaMap, filename: &PathBuf) {
 }
 
 /// Fill `recips` vec with possible recipients for `santa_name`.
-/// 
+///
 /// # Arguments
-/// 
-/// `recips` - Vector to write recipients to
-/// `santa_name` - Name of Santa for these recipients
-/// `santas` - HashMap of all Santas
-/// `gift_chain` - Current gift chain
-/// `exclude_size` - Number of history years to exclude
+///
+/// * `recips` - Vector to write recipients to
+/// * `santa_name` - Name of Santa for these recipients
+/// * `santas` - HashMap of all Santas
+/// * `gift_chain` - Current gift chain
+/// * `exclude_size` - Number of history years to exclude
 fn get_possible_recipients(
     recips: &mut Vec<String>,
     santa_name: &String,
@@ -130,6 +144,11 @@ fn get_possible_recipients(
     // return recips;
 }
 
+/// Make HashMap of all Santa info, from csv files.
+/// 
+/// # Arguments
+/// 
+/// * `data_path` - Path to dir containing `family.csv` and `history.csv`
 fn make_santas(data_path: &PathBuf) -> SantaMap {
     let mut santas: SantaMap = HashMap::new();
 
@@ -153,7 +172,7 @@ pub fn generate(data_path: &PathBuf) {
 
     get_possible_recipients(&mut recips, &start, &santas, &gift_chain, 1);
 
-    if (recips.len() == 0) {
+    if recips.is_empty() {
         println!("No valid recipients for {}. Backtracking.", *start);
     } else {
         let recip = recips.into_iter().choose(&mut rng).unwrap();
@@ -163,7 +182,6 @@ pub fn generate(data_path: &PathBuf) {
     // for santa in santas {
     //     println!("{:#?}", santa);
     // }
-
 }
 
 // TESTS
