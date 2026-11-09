@@ -50,15 +50,15 @@ fn read_family_csv(santas: &mut SantaMap, data_path: &PathBuf) {
 }
 
 /// Return path to `history.csv`
-/// 
+///
 /// Panic if file not found.
-/// 
+///
 /// /// # Arguments
-/// 
+///
 /// * `data_path` - Path to dir containing csv files
-/// 
+///
 /// # Returns
-/// 
+///
 /// * `PathBuf` - Path to `history.csv`
 fn get_history_csv(data_path: &PathBuf) -> PathBuf {
     let csv_file = data_path.join("history.csv");
@@ -69,13 +69,13 @@ fn get_history_csv(data_path: &PathBuf) -> PathBuf {
 }
 
 /// Read `history.csv`
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `data_path` - Path to dir containing csv files
-/// 
+///
 /// # Returns
-/// 
+///
 /// * `Vec<String>` - Vector of header items
 /// * `Vec<String>` - Vector of lines. Note these are whole lines and are not split by
 ///   value separator
@@ -162,7 +162,7 @@ fn update_history(data_path: &PathBuf, gift_chain: &Vec<String>, year: String) {
     append_history_csv(data_path, new_line_values.join(","));
 }
 
-/// Fill `recips` vec with possible recipients for `santa_name`.
+/// Fill `recips` vec with possible recipients for last name in `gift_chain`
 ///
 /// # Arguments
 ///
@@ -192,6 +192,7 @@ fn get_possible_recipients(
             continue;
         }
 
+        // check if `santa` has `person` in recent history
         let mut santa_in_history: bool = false;
         if exclude_size > 0 {
             for (idx, item) in santa.history.iter().enumerate() {
@@ -208,8 +209,6 @@ fn get_possible_recipients(
         }
         recips.push(key.clone());
     }
-
-    // return recips;
 }
 
 /// Make HashMap of all Santa info, from csv files.
