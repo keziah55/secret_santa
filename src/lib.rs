@@ -1,12 +1,12 @@
 use chrono::Datelike;
 use rand::seq::IteratorRandom;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Santa {
     name: String,
     clan: String,
@@ -178,7 +178,12 @@ fn update_history(data_path: &PathBuf, gift_chain: &Vec<String>, year: String) {
 /// * `gift_chain` - Current gift chain. The last item is taken as the Santa to get
 ///    recipients for
 /// * `exclude_size` - Number of history years to exclude
-fn get_possible_recipients(recips: &mut Vec<String>, santas: &SantaMap, gift_chain: &Vec<String>) {
+fn get_possible_recipients(
+    recips: &mut Vec<String>,
+    santas: &SantaMap,
+    gift_chain: &Vec<String>,
+    extra_exclude: &Vec<String>,
+) {
     let santa_name = gift_chain.last().unwrap();
     let santa = &santas[santa_name];
 
@@ -189,7 +194,10 @@ fn get_possible_recipients(recips: &mut Vec<String>, santas: &SantaMap, gift_cha
 
         let person = &santas[key];
 
-        if person.clan == santa.clan || gift_chain.contains(&person.name) {
+        if person.clan == santa.clan
+            || gift_chain.contains(&person.name)
+            || extra_exclude.contains(&person.name)
+        {
             // person is in same group as santa or is already allocated
             continue;
         }
@@ -216,29 +224,84 @@ fn make_santas(data_path: &PathBuf, history_size: usize) -> SantaMap {
     return santas;
 }
 
-fn make_gift_chain(santas: &SantaMap) -> Vec<String>  {
-    
+fn check_possible_santas_valid(possible_santas: &HashSet<String>, santas: &SantaMap) -> bool {
+    match possible_santas.len() {
+        0 => return false,
+        1 => return true,
+        _ => {
+            let mut groups: HashSet<&String> = HashSet::new();
+
+            for name in possible_santas {
+                groups.insert(&santas[name].clan);
+            }
+
+            return groups.len() > 1;
+        }
+    }
+}
+
+/// Make vector of names, defining secret santa gift chain
+fn make_gift_chain(santas: &SantaMap) -> Vec<String> {
     let mut gift_chain: Vec<String> = vec![];
 
     let mut rng = rand::rng();
 
+    let mut all_recips: HashSet<String> = santas.keys().cloned().collect();
+
     let start = santas.keys().choose(&mut rng).unwrap();
     gift_chain.push(start.to_string());
+    all_recips.remove(start);
+
+    let mut extra_exclude = vec![];
 
     // TODO check final item in chain can gift to first
+    let mut i = 0;
     while gift_chain.len() < santas.len() {
-        let mut recips: Vec<String> = vec![];
-        get_possible_recipients(&mut recips, &santas, &gift_chain);
+        if i > 25 {
+            println!("max iterations reached");
+            break;
+        } else {
+            i += 1;
+        }
 
-        if recips.is_empty() {
+        println!();
+
+        let mut recips: Vec<String> = vec![];
+        get_possible_recipients(&mut recips, &santas, &gift_chain, &extra_exclude);
+
+        if recips.is_empty() || !check_possible_santas_valid(&all_recips, &santas) {
             // TODO handle invalid chain here
             let removed = gift_chain.pop().unwrap();
-            println!("No valid recipients for {}. Backtracking.", removed);
+            println!(
+                "No valid recipients for {}. Backtracking. recips={:#?}, all_recips={:#?}",
+                removed, recips, all_recips
+            );
+
+            let key = removed.clone();
+            extra_exclude.push(removed);
+            all_recips.insert(key);
         } else {
+            extra_exclude.clear();
             let recip = recips.into_iter().choose(&mut rng).unwrap();
+            all_recips.remove(&recip);
             gift_chain.push(recip);
+
+            println!(
+                "Added {} to gift chain. Remaining recipients in draw:",
+                &gift_chain.last().unwrap()
+            );
+            for name in &all_recips {
+                println!("  {}", name);
+            }
         }
     }
+    return gift_chain;
+}
+
+pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: bool) {
+    let santas = make_santas(&data_path, history_size);
+    let gift_chain = make_gift_chain(&santas);
+
     println!("Gift chain:");
     for (n, name) in gift_chain.iter().enumerate() {
         print!("{}", name);
@@ -248,14 +311,6 @@ fn make_gift_chain(santas: &SantaMap) -> Vec<String>  {
     }
     println!();
 
-    return gift_chain;
-}
-
-pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: bool) {
-    
-    let santas = make_santas(&data_path, history_size);
-    let gift_chain = make_gift_chain(&santas);
-    
     if do_update_history {
         let year = format!("{}", chrono::Utc::now().year());
         update_history(data_path, &gift_chain, year);
