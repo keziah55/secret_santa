@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use clap::Parser;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(version = "1.0")]
@@ -11,10 +11,18 @@ pub struct Cli {
     /// Update `history.csv` file
     #[arg(short = 'u', long)]
     update: bool,
+
+    /// Exclude `N` recent years from potential matches
+    #[arg(long, short = 's', value_name = "N")]
+    history_size: Option<usize>,
 }
 
 fn main() {
     let cli = Cli::parse();
     let data_path = PathBuf::from(cli.data_path);
-    secret_santa::generate(&data_path, cli.update);
+    let history_size: usize  = match cli.history_size {
+        Some(size) => size,
+        None => 0,
+    };
+    secret_santa::generate(&data_path, history_size, cli.update);
 }

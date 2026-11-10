@@ -11,7 +11,7 @@ struct Santa {
     name: String,
     clan: String,
     email_address: String,
-    history: Vec<Option<String>>,
+    history: Vec<String>,
 }
 
 type SantaMap = HashMap<String, Santa>;
@@ -83,15 +83,17 @@ fn read_history_csv(data_path: &PathBuf) -> (Vec<String>, Vec<String>) {
     let csv_file = get_history_csv(data_path);
 
     let text = fs::read_to_string(csv_file).unwrap();
-    let lines: Vec<String> = text.split("\n").map(|s| s.to_string()).collect();
+    let mut lines_iter = text.split("\n");
 
     // get header row from `lines`
-    let header: Vec<String> = lines
-        .first()
+    let header: Vec<String> = lines_iter
+        .next()
         .unwrap()
         .split(",")
         .map(|s| s.to_string())
         .collect();
+
+    let lines: Vec<String> = lines_iter.map(|s| s.to_string()).collect();
 
     return (header, lines);
 }
@@ -107,7 +109,7 @@ fn append_history_csv(data_path: &PathBuf, new_line: String) {
 ///
 /// * `santas` - HashMap of all Santas; `history` fields are populated by this function
 /// * `data_path` - Path to dir containing csv files
-fn set_history(santas: &mut SantaMap, data_path: &PathBuf) {
+fn set_history(santas: &mut SantaMap, data_path: &PathBuf, history_size: usize) {
     let (header, lines) = read_history_csv(data_path);
 
     // iterate over columns of data
@@ -122,18 +124,22 @@ fn set_history(santas: &mut SantaMap, data_path: &PathBuf) {
         }
         let santa = santas.get_mut(name).unwrap();
 
-        for row_idx in (1..lines.len()).rev() {
+        let end = lines.len() - 1;
+        let start = if history_size > end {
+            0
+        } else {
+            end - history_size
+        };
+
+        for row_idx in (start..end).rev() {
             if lines[row_idx].trim().is_empty() {
                 continue;
             }
 
             let row: Vec<&str> = lines[row_idx].split(",").collect();
-            let value = if row[idx] == "" {
-                None
-            } else {
-                Some(row[idx].to_string())
-            };
-            santa.history.push(value.clone());
+            if row[idx] != "" {
+                santa.history.push(row[idx].to_string().clone());
+            }
         }
     }
 }
@@ -171,12 +177,7 @@ fn update_history(data_path: &PathBuf, gift_chain: &Vec<String>, year: String) {
 /// * `gift_chain` - Current gift chain. The last item is taken as the Santa to get
 ///    recipients for
 /// * `exclude_size` - Number of history years to exclude
-fn get_possible_recipients(
-    recips: &mut Vec<String>,
-    santas: &SantaMap,
-    gift_chain: &Vec<String>,
-    exclude_size: usize,
-) {
+fn get_possible_recipients(recips: &mut Vec<String>, santas: &SantaMap, gift_chain: &Vec<String>) {
     let santa_name = gift_chain.last().unwrap();
     let santa = &santas[santa_name];
 
@@ -193,20 +194,24 @@ fn get_possible_recipients(
         }
 
         // check if `santa` has `person` in recent history
-        let mut santa_in_history: bool = false;
-        if exclude_size > 0 {
-            for (idx, item) in santa.history.iter().enumerate() {
-                if idx < exclude_size && item.is_some() {
-                    if item.as_deref().unwrap() == person.name {
-                        santa_in_history = true;
-                        break;
-                    }
-                }
-            }
-        }
-        if santa_in_history {
+        if santa.history.contains(&person.name) {
             continue;
         }
+
+        // let mut santa_in_history: bool = false;
+        // if exclude_size > 0 {
+        //     for (idx, item) in santa.history.iter().enumerate() {
+        //         if idx < exclude_size && item.is_some() {
+        //             if item.as_deref().unwrap() == person.name {
+        //                 santa_in_history = true;
+        //                 break;
+        //             }
+        //         }
+        //     }
+        // }
+        // if santa_in_history {
+        //     continue;
+        // }
         recips.push(key.clone());
     }
 }
@@ -216,19 +221,19 @@ fn get_possible_recipients(
 /// # Arguments
 ///
 /// * `data_path` - Path to dir containing `family.csv` and `history.csv`
-fn make_santas(data_path: &PathBuf) -> SantaMap {
+fn make_santas(data_path: &PathBuf, history_size: usize) -> SantaMap {
     let mut santas: SantaMap = HashMap::new();
 
     read_family_csv(&mut santas, data_path);
-    set_history(&mut santas, data_path);
+    set_history(&mut santas, data_path, history_size);
 
     return santas;
 }
 
-pub fn generate(data_path: &PathBuf, do_update_history: bool) {
+pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: bool) {
     let mut rng = rand::rng();
 
-    let santas = make_santas(&data_path);
+    let santas = make_santas(&data_path, history_size);
 
     let mut gift_chain: Vec<String> = vec![];
 
@@ -238,7 +243,7 @@ pub fn generate(data_path: &PathBuf, do_update_history: bool) {
     // TODO check final item in chain can gift to first
     while gift_chain.len() < santas.len() {
         let mut recips: Vec<String> = vec![];
-        get_possible_recipients(&mut recips, &santas, &gift_chain, 1);
+        get_possible_recipients(&mut recips, &santas, &gift_chain);
 
         if recips.is_empty() {
             // TODO handle invalid chain here
@@ -274,7 +279,7 @@ mod tests {
         let data_path = env::current_dir().unwrap().join("src/test_data");
         // println!("data_path: {:#?}", data_path);
 
-        let santas = make_santas(&data_path);
+        let santas = make_santas(&data_path, 0);
         assert_eq!(santas.len(), 12);
 
         let groups = vec!["Simpson", "Flanders", "Van Houten"];
