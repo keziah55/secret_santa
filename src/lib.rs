@@ -98,11 +98,11 @@ fn read_history_csv(data_path: &PathBuf) -> (Vec<String>, Vec<String>) {
     return (header, lines);
 }
 
-/// Append new line to `history.csv`
-fn append_history_csv(data_path: &PathBuf, new_line: String) {
-    let csv_file = data_path.join("history.csv");
+/// Append `text` to `history.csv`
+fn append_history_csv(data_path: &PathBuf, text: String) {
+    let csv_file = get_history_csv(data_path);
     let mut f = File::options().append(true).open(csv_file).unwrap();
-    writeln!(&mut f, "{new_line}").unwrap();
+    writeln!(&mut f, "{text}").unwrap();
 }
 
 /// Read `history.csv` and update `santas` HashMap
@@ -111,6 +111,14 @@ fn append_history_csv(data_path: &PathBuf, new_line: String) {
 /// * `data_path` - Path to dir containing csv files
 fn set_history(santas: &mut SantaMap, data_path: &PathBuf, history_size: usize) {
     let (header, lines) = read_history_csv(data_path);
+
+    // `start` and `end` are row numbers to get history from
+    let end = lines.len() - 1;
+    let start = if history_size > end {
+        0
+    } else {
+        end - history_size
+    };
 
     // iterate over columns of data
     for idx in 0..header.len() {
@@ -124,14 +132,7 @@ fn set_history(santas: &mut SantaMap, data_path: &PathBuf, history_size: usize) 
         }
         let santa = santas.get_mut(name).unwrap();
 
-        let end = lines.len() - 1;
-        let start = if history_size > end {
-            0
-        } else {
-            end - history_size
-        };
-
-        for row_idx in (start..end).rev() {
+        for row_idx in start..end {
             if lines[row_idx].trim().is_empty() {
                 continue;
             }
@@ -197,21 +198,6 @@ fn get_possible_recipients(recips: &mut Vec<String>, santas: &SantaMap, gift_cha
         if santa.history.contains(&person.name) {
             continue;
         }
-
-        // let mut santa_in_history: bool = false;
-        // if exclude_size > 0 {
-        //     for (idx, item) in santa.history.iter().enumerate() {
-        //         if idx < exclude_size && item.is_some() {
-        //             if item.as_deref().unwrap() == person.name {
-        //                 santa_in_history = true;
-        //                 break;
-        //             }
-        //         }
-        //     }
-        // }
-        // if santa_in_history {
-        //     continue;
-        // }
         recips.push(key.clone());
     }
 }
