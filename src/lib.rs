@@ -177,13 +177,7 @@ fn update_history(data_path: &PathBuf, gift_chain: &Vec<String>, year: String) {
 /// * `santas` - HashMap of all Santas
 /// * `gift_chain` - Current gift chain. The last item is taken as the Santa to get
 ///    recipients for
-/// * `exclude_size` - Number of history years to exclude
-fn get_possible_recipients(
-    recips: &mut Vec<String>,
-    santas: &SantaMap,
-    gift_chain: &Vec<String>,
-    extra_exclude: &Vec<String>,
-) {
+fn get_possible_recipients(recips: &mut Vec<String>, santas: &SantaMap, gift_chain: &Vec<String>) {
     let santa_name = gift_chain.last().unwrap();
     let santa = &santas[santa_name];
 
@@ -194,10 +188,7 @@ fn get_possible_recipients(
 
         let person = &santas[key];
 
-        if person.clan == santa.clan
-            || gift_chain.contains(&person.name)
-            || extra_exclude.contains(&person.name)
-        {
+        if person.clan == santa.clan || gift_chain.contains(&person.name) {
             // person is in same group as santa or is already allocated
             continue;
         }
@@ -208,6 +199,13 @@ fn get_possible_recipients(
         }
         recips.push(key.clone());
     }
+}
+
+/// Return true if `recipient` is valid for `santa`
+fn is_valid_recipient(santa_name: &String, recipient_name: &String, all_santas: &SantaMap) -> bool {
+    let santa: &Santa = &all_santas[santa_name];
+    let recipient: &Santa = &all_santas[recipient_name];
+    return (santa.clan != recipient.clan) && !santa.history.contains(&recipient.name);
 }
 
 /// Make HashMap of all Santa info, from csv files.
@@ -224,78 +222,79 @@ fn make_santas(data_path: &PathBuf, history_size: usize) -> SantaMap {
     return santas;
 }
 
-fn check_possible_santas_valid(possible_santas: &HashSet<String>, santas: &SantaMap) -> bool {
-    match possible_santas.len() {
-        0 => return false,
-        1 => return true,
-        _ => {
-            let mut groups: HashSet<&String> = HashSet::new();
+/// Make vector of names, defining secret santa gift chain
+/// 
+/// # Arguments
+/// 
+/// * `santas` - All santa info
+/// 
+/// # Returns
+/// 
+/// * `Vec<String>` - Vector defining gift chain
+fn make_gift_chain(santas: &SantaMap) -> Vec<String> {
+    let mut known_invalid_chain: HashSet<String> = HashSet::new();
 
-            for name in possible_santas {
-                groups.insert(&santas[name].clan);
-            }
-
-            return groups.len() > 1;
-        }
+    let mut gift_chain_opt: Option<Vec<String>> = None;
+    while gift_chain_opt.is_none() {
+        gift_chain_opt = try_make_gift_chain(santas, &mut known_invalid_chain);
     }
+
+    println!(
+        "Found valid gift chain and {} invalid chains",
+        known_invalid_chain.len()
+    );
+    return gift_chain_opt.unwrap();
 }
 
-/// Make vector of names, defining secret santa gift chain
-fn make_gift_chain(santas: &SantaMap) -> Vec<String> {
-    let mut gift_chain: Vec<String> = vec![];
-
+/// Make a gift chain, either valid or invalid.
+///
+/// # Arguments
+///
+/// * `santas` - All santa info
+/// * `known_invalid_chain` - Vector of known invalid chains, as strings.
+///   If gift chain found by this function is not valid, it's string representation is
+///   added to the set before returning.
+///
+/// # Returns
+///
+/// * `Option<Vec<String>>` - Gift chain if valid; None if invalid.
+fn try_make_gift_chain(
+    santas: &SantaMap,
+    known_invalid_chain: &mut HashSet<String>,
+) -> Option<Vec<String>> {
     let mut rng = rand::rng();
 
-    let mut all_recips: HashSet<String> = santas.keys().cloned().collect();
+    let mut gift_chain: Vec<String> = vec![];
 
     let start = santas.keys().choose(&mut rng).unwrap();
     gift_chain.push(start.to_string());
-    all_recips.remove(start);
 
-    let mut extra_exclude = vec![];
-
-    // TODO check final item in chain can gift to first
-    let mut i = 0;
     while gift_chain.len() < santas.len() {
-        if i > 25 {
-            println!("max iterations reached");
-            break;
-        } else {
-            i += 1;
-        }
-
-        println!();
-
         let mut recips: Vec<String> = vec![];
-        get_possible_recipients(&mut recips, &santas, &gift_chain, &extra_exclude);
+        get_possible_recipients(&mut recips, &santas, &gift_chain);
 
-        if recips.is_empty() || !check_possible_santas_valid(&all_recips, &santas) {
-            // TODO handle invalid chain here
-            let removed = gift_chain.pop().unwrap();
-            println!(
-                "No valid recipients for {}. Backtracking. recips={:#?}, all_recips={:#?}",
-                removed, recips, all_recips
-            );
+        let gift_chain_str = gift_chain.join("");
 
-            let key = removed.clone();
-            extra_exclude.push(removed);
-            all_recips.insert(key);
+        if recips.is_empty() || known_invalid_chain.contains(&gift_chain_str) {
+            known_invalid_chain.insert(gift_chain_str);
+            return None;
         } else {
-            extra_exclude.clear();
             let recip = recips.into_iter().choose(&mut rng).unwrap();
-            all_recips.remove(&recip);
             gift_chain.push(recip);
-
-            println!(
-                "Added {} to gift chain. Remaining recipients in draw:",
-                &gift_chain.last().unwrap()
-            );
-            for name in &all_recips {
-                println!("  {}", name);
-            }
         }
     }
-    return gift_chain;
+
+    // check that last in chain can give to first
+    if !is_valid_recipient(
+        &gift_chain.last().unwrap(),
+        &gift_chain.first().unwrap(),
+        santas,
+    ) {
+        let gift_chain_str = gift_chain.join("");
+        known_invalid_chain.insert(gift_chain_str);
+        return None;
+    }
+    return Some(gift_chain);
 }
 
 pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: bool) {
