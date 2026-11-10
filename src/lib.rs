@@ -216,12 +216,11 @@ fn make_santas(data_path: &PathBuf, history_size: usize) -> SantaMap {
     return santas;
 }
 
-pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: bool) {
-    let mut rng = rand::rng();
-
-    let santas = make_santas(&data_path, history_size);
-
+fn make_gift_chain(santas: &SantaMap) -> Vec<String>  {
+    
     let mut gift_chain: Vec<String> = vec![];
+
+    let mut rng = rand::rng();
 
     let start = santas.keys().choose(&mut rng).unwrap();
     gift_chain.push(start.to_string());
@@ -248,6 +247,15 @@ pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: boo
         }
     }
     println!();
+
+    return gift_chain;
+}
+
+pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: bool) {
+    
+    let santas = make_santas(&data_path, history_size);
+    let gift_chain = make_gift_chain(&santas);
+    
     if do_update_history {
         let year = format!("{}", chrono::Utc::now().year());
         update_history(data_path, &gift_chain, year);
