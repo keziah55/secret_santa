@@ -16,6 +16,35 @@ struct Santa {
 
 type SantaMap = HashMap<String, Santa>;
 
+/// Make ASCII image with `name` subbed in
+fn make_img(name: &String) -> String {
+    let name_str = format!(" \\   \\  {}!", name.to_uppercase());
+    let image: Vec<&str> = vec![
+        "",
+        " .-.",
+        "(o o) I am the ghost of Christmas presents,",
+        "| O \\  and your secret santa is...",
+        &name_str,
+        "  `~~~'",
+        "",
+    ];
+
+    let width = image.iter().map(|s| s.len()).max().unwrap() + 4;
+    let c = "#";
+
+    let mut image_str: Vec<String> = vec![];
+    for line in image {
+        if line.is_empty() {
+            image_str.push(c.repeat(width));
+        } else {
+            let s = format!("{} {}", c, line);
+            let pad = width - s.len() - 1;
+            image_str.push(format!("{}{}{}", s, " ".repeat(pad), c));
+        }
+    }
+    return image_str.join("\n");
+}
+
 /// Read csv file and update `santas` HashMap
 ///
 /// # Arguments
@@ -223,13 +252,13 @@ fn make_santas(data_path: &PathBuf, history_size: usize) -> SantaMap {
 }
 
 /// Make vector of names, defining secret santa gift chain
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `santas` - All santa info
-/// 
+///
 /// # Returns
-/// 
+///
 /// * `Vec<String>` - Vector defining gift chain
 fn make_gift_chain(santas: &SantaMap) -> Vec<String> {
     let mut known_invalid_chain: HashSet<String> = HashSet::new();
@@ -301,14 +330,22 @@ pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: boo
     let santas = make_santas(&data_path, history_size);
     let gift_chain = make_gift_chain(&santas);
 
-    println!("Gift chain:");
     for (n, name) in gift_chain.iter().enumerate() {
-        print!("{}", name);
-        if n < gift_chain.len() - 1 {
-            print!(" -> ");
+        let santa: &Santa = &santas[name];
+        let recip_idx = if n == gift_chain.len() - 1 { 0 } else { n + 1 };
+        let recip: &Santa = &santas[&gift_chain[recip_idx]];
+
+        if !is_valid_recipient(&santa.name, &recip.name, &santas) {
+            panic!(
+                "Invalid gift chain! Santa {} cannot give to {}",
+                &santa.name, &recip.name
+            );
         }
+
+        let img = make_img(&recip.name);
+        println!("\n{}: {}", santa.name, santa.email_address);
+        println!("{}", img);
     }
-    println!();
 
     if do_update_history {
         let year = format!("{}", chrono::Utc::now().year());
