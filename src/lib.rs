@@ -7,16 +7,9 @@ use std::io::Write;
 use std::path::PathBuf;
 
 mod email;
+mod types;
 
-#[derive(Debug, Clone)]
-struct Santa {
-    name: String,
-    clan: String,
-    email_address: String,
-    history: Vec<String>,
-}
-
-type SantaMap = HashMap<String, Santa>;
+use types::{SantaMap, Santa};
 
 
 /// Read csv file and update `santas` HashMap
@@ -316,10 +309,14 @@ pub fn generate(data_path: &PathBuf, history_size: usize, do_update_history: boo
             );
         }
 
-        let img = email::make_img(&recip.name);
-        println!("\n{}: {}", santa.name, santa.email_address);
-        println!("{}", img);
+        // email::send_email(&santas["Keziah"], &santas["Keziah"], data_path);
+
+        // let img = email::make_email(&santa, &recip);
+        // println!("\n{}: {}", santa.name, santa.email_address);
+        // println!("{}", img);
     }
+
+    email::send_email(&santas["Keziah"], &santas["Keziah"], data_path);
 
     if do_update_history {
         let year = format!("{}", chrono::Utc::now().year());

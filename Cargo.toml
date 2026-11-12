@@ -6,5 +6,7 @@ edition = "2024"
 [dependencies]
 chrono = "0.4.45"
 clap = { version = "4.6.7", features = ["derive"] }
+lettre = "0.11.23"
 rand = "0.10.3"
 rstest = "0.28.0"
+toml = "1.2.1"

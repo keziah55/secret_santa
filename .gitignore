@@ -2,3 +2,4 @@
 Cargo.lock
 data/
 .venv
+config.toml

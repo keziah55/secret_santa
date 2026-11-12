@@ -2,8 +2,6 @@ use clap::Parser;
 use std::path::PathBuf;
 
 
-mod email;
-
 #[derive(Parser)]
 #[command(version = "1.0")]
 #[command(about="Generate Secret Santa pairings and send emails", long_about=None)]
