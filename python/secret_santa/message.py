@@ -1,6 +1,5 @@
 import smtplib
 import ssl
-from email.message import EmailMessage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from string import Template
@@ -17,22 +16,16 @@ class MessageSender:
     def send_msg(self, subject: str, to_name: str, to_address: str, giftee_name: str):
         """Send email with `subject` and optional attachment."""
 
-        assert to_address == "keziah.milligan@protonmail.com"
-
-        # msg = EmailMessage()
-        msg = MIMEMultipart('alternative')
+        msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = self._sender["address"]
         msg["To"] = to_address
 
         content = self._msg.make_message(santa=to_name, recipient=giftee_name)
-        # msg.set_content(content)
-        msg.attach(MIMEText(content, 'html'))
-        self._send(msg)
+        msg.attach(MIMEText(content, "html"))
+        # self._send(msg)
 
-        print("sent message")
-
-    def _send(self, msg: EmailMessage):
+    def _send(self, msg: MIMEMultipart):
         context = ssl.create_default_context()
 
         with smtplib.SMTP_SSL(

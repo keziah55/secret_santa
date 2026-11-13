@@ -29,5 +29,5 @@ if __name__ == "__main__":
         history_size=args.history_size,
         update_history=args.update,
         email_config=config,
-        send_email=True,
+        send_email=False,
     )

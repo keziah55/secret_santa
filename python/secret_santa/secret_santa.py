@@ -156,5 +156,4 @@ def _send_email(email_config: dict, gift_chain: list[str], santas: SantaDict):
         recipient = santas[recip_name]
 
         print(f"Santa: {santa.name}, {santa.email_address}")
-        email_address = "keziah.milligan@protonmail.com"
-        # sender.send_msg("Secret Santa!", santa.name, email_address, recipient)
+        sender.send_msg("Secret Santa!", santa.name, santa.email_address, recipient.name)
