@@ -13,7 +13,7 @@ class CsvReader:
 
     @classmethod
     def _row(cls, line: str) -> list[str]:
-        return [item.strip() for item in line.split(cls.SEP) if item.strip()]
+        return [item.strip() for item in line.split(cls.SEP)]
 
     def _read_file(self, file_path: Path) -> list[str]:
         """Read file to list of non-empty strings"""
@@ -57,10 +57,13 @@ class CsvReader:
     def _set_history(self, santas: SantaDict, history_size: int = 0):
         """Read `history.csv` and update `santas` dict."""
 
+        if history_size < 0:
+            raise ValueError(f"history_size must be positive int, got {history_size}")
+
         header, *lines = self._read_file(self._history_file)
         header = self._row(header)
 
-        end = len(lines) - 1
+        end = len(lines)
         start = 0 if history_size > end else end - history_size
 
         for idx, name in enumerate(header):
@@ -78,8 +81,11 @@ class CsvReader:
                 if row[idx]:
                     santas[name].history.append(row[idx])
 
-    def update_history(self, gift_chain: list[str], year: str):
+    def update_history(self, gift_chain: list[str], year: str | int):
         """Update `history.csv` with new data."""
+
+        if isinstance(year, int):
+            year = str(year)
 
         header, *_ = self._read_file(self._history_file)
         header = self._row(header)
@@ -90,10 +96,7 @@ class CsvReader:
             if not name:
                 continue
             idx = gift_chain.index(name)
-            if idx == len(gift_chain) - 1:
-                idx = 0
-            else:
-                idx += 1
+            idx = (idx + 1) % len(gift_chain)
             new_line_values.append(gift_chain[idx])
 
         new_line = self.SEP.join(new_line_values) + "\n"

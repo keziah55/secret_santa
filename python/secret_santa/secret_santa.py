@@ -2,6 +2,7 @@ from typing import Optional
 import random
 from pathlib import Path
 from datetime import date
+import itertools
 
 from .data_types import SantaDict
 from .read_csv import CsvReader
@@ -10,11 +11,12 @@ from .message import MessageSender
 
 class SecretSanta:
 
-    def __init__(self, santas: SantaDict, quiet: bool = False):
+    def __init__(self, santas: SantaDict, quiet: bool = False, max_attempts: int = 100):
         self._santas: SantaDict = santas
         self._known_invalid: set[str] = set()
         self._join_char = "-"
         self._quiet = quiet
+        self._max_attempts = max_attempts
 
     def _gift_chain_str(self, gift_chain: list[str]) -> str:
         """Return string representation of gift chain."""
@@ -49,9 +51,12 @@ class SecretSanta:
     def make_gift_chain(self) -> list[str]:
         """Make list of names, defining gifting chain."""
 
-        gift_chain = None
-        while gift_chain is None:
+        for _ in range(self._max_attempts):
             gift_chain = self._make_gift_chain()
+            if gift_chain is not None:
+                break
+        else:
+            raise Exception(f"Could not find valid gift chain in {self._max_attempts} attempts")
 
         if not self._quiet:
             print(f"Found valid gift chain and {len(self._known_invalid)} invalid chains")
@@ -74,15 +79,9 @@ class SecretSanta:
         gift_chain = [start]
 
         while len(gift_chain) < len(self._santas):
-            recips = self._get_possible_recipients(gift_chain)
 
-            gift_chain_str = self._gift_chain_str(gift_chain)
-
-            # if no valid recipients or this gift chain is known to be invalid, return None
-            if len(recips) == 0:
-                self._known_invalid.add(gift_chain_str)
-                return None
-            elif gift_chain_str in self._known_invalid:
+            recips = self._check_gift_chain_valid(gift_chain)
+            if recips is None:
                 return None
 
             # pick random recipient
@@ -94,6 +93,36 @@ class SecretSanta:
             return None
 
         return gift_chain
+
+    def _check_gift_chain_valid(self, gift_chain: list[str]) -> Optional[list[str]]:
+        """
+        Check if gist chain is valid.
+
+        If valid, return list of possible recipients.
+
+        If not valid, add to `_known_invalid` and return None.
+        """
+
+        recips = self._get_possible_recipients(gift_chain)
+
+        gift_chain_str = self._gift_chain_str(gift_chain)
+
+        # if no valid recipients or this gift chain is known to be invalid, return None
+        if len(recips) == 0:
+            self._known_invalid.add(gift_chain_str)
+            return None
+        elif gift_chain_str in self._known_invalid:
+            return None
+
+        return recips
+
+
+def pairwise_cycle(seq):
+    """Return iterator pairing adjacent values from `seq`, looping to beginning when
+    the last item is reached."""
+    a, b = itertools.tee(seq)
+    first_value = next(b, None)
+    return itertools.zip_longest(a, b, fillvalue=first_value)
 
 
 def generate(
@@ -121,11 +150,11 @@ def generate(
 def _send_email(email_config: dict, gift_chain: list[str], santas: SantaDict):
 
     sender = MessageSender(email_config)
-    for n, santa_name in enumerate(gift_chain):
-        idx = 0 if n == len(gift_chain) - 1 else n + 1
-        recipient = gift_chain[idx]
+    for santa_name, recip_name in pairwise_cycle(gift_chain):
 
         santa = santas[santa_name]
+        recipient = santas[recip_name]
+
         print(f"Santa: {santa.name}, {santa.email_address}")
         email_address = "keziah.milligan@protonmail.com"
         # sender.send_msg("Secret Santa!", santa.name, email_address, recipient)
