@@ -1,6 +1,11 @@
 from typing import Optional
 import random
+from pathlib import Path
+from datetime import date
+
 from .data_types import SantaDict
+from .read_csv import CsvReader
+from .message import MessageSender
 
 
 class SecretSanta:
@@ -50,6 +55,7 @@ class SecretSanta:
 
         if not self._quiet:
             print(f"Found valid gift chain and {len(self._known_invalid)} invalid chains")
+            print(" -> ".join(gift_chain))
 
         return gift_chain
 
@@ -88,3 +94,38 @@ class SecretSanta:
             return None
 
         return gift_chain
+
+
+def generate(
+    data_path: Path,
+    history_size: int,
+    update_history: bool,
+    email_config: dict,
+    send_email: bool,
+):
+    """Generate Secret Santa gift chain and send emails."""
+
+    csv_reader = CsvReader(data_path)
+    santas: SantaDict = csv_reader.make_santa_dict(history_size=history_size)
+
+    generator = SecretSanta(santas=santas)
+    gift_chain = generator.make_gift_chain()
+
+    if update_history:
+        csv_reader.update_history(gift_chain=gift_chain, year=f"{date.today().year}")
+
+    if send_email:
+        _send_email(email_config=email_config, gift_chain=gift_chain, santas=santas)
+
+
+def _send_email(email_config: dict, gift_chain: list[str], santas: SantaDict):
+
+    sender = MessageSender(email_config)
+    for n, santa_name in enumerate(gift_chain):
+        idx = 0 if n == len(gift_chain) - 1 else n + 1
+        recipient = gift_chain[idx]
+
+        santa = santas[santa_name]
+        print(f"Santa: {santa.name}, {santa.email_address}")
+        email_address = "keziah.milligan@protonmail.com"
+        # sender.send_msg("Secret Santa!", santa.name, email_address, recipient)
