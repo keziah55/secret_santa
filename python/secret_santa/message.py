@@ -16,6 +16,9 @@ class MessageSender:
     def send_msg(self, subject: str, to_name: str, to_address: str, giftee_name: str):
         """Send email with `subject` and optional attachment."""
 
+        if not to_address:
+            raise ValueError(f"No email address given for {to_name}")
+
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"] = self._sender["address"]
@@ -23,7 +26,7 @@ class MessageSender:
 
         content = self._msg.make_message(santa=to_name, recipient=giftee_name)
         msg.attach(MIMEText(content, "html"))
-        # self._send(msg)
+        self._send(msg)
 
     def _send(self, msg: MIMEMultipart):
         context = ssl.create_default_context()
@@ -80,8 +83,10 @@ class Message:
 
         header = cls.HTML_HEADER.substitute(title=cls.MSG_TITLE)
 
-        print("\n".join(ascii_img))
+        tag = "code"
 
         return "\n".join(
-            [header, "<body>", "<code>"] + ascii_img + ["</code>", "</body>", cls.HTML_FOOTER]
+            [header, "<body>", f"<{tag}>"]
+            + ascii_img
+            + [f"</{tag}>", "</body>", cls.HTML_FOOTER]
         )

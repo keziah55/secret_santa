@@ -72,15 +72,14 @@ pub fn send_email(santa: &Santa, recip: &Santa, data_path: &PathBuf) {
             config["address"].as_str().unwrap().parse().unwrap(),
         ))
         .to(Mailbox::new(
-            Some(recip.name.clone().to_owned()),
-            recip.email_address.parse().unwrap(),
+            Some(santa.name.clone().to_owned()),
+            santa.email_address.parse().unwrap(),
         ))
         .subject("Secret Santa!")
         .header(ContentType::TEXT_HTML)
         .body(html)
         .unwrap();
 
-    println!("{}, {}",config["address"].to_string(), config["cred"].to_string().to_owned() );
     let creds = Credentials::new(
         config["address"].to_string().to_owned(),
         config["cred"].to_string().to_owned(),

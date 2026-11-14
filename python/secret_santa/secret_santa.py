@@ -131,13 +131,14 @@ def generate(
     update_history: bool,
     email_config: dict,
     send_email: bool,
+    quiet: bool,
 ):
     """Generate Secret Santa gift chain and send emails."""
 
     csv_reader = CsvReader(data_path)
     santas: SantaDict = csv_reader.make_santa_dict(history_size=history_size)
 
-    generator = SecretSanta(santas=santas)
+    generator = SecretSanta(santas=santas, quiet=quiet)
     gift_chain = generator.make_gift_chain()
 
     if update_history:
@@ -150,10 +151,10 @@ def generate(
 def _send_email(email_config: dict, gift_chain: list[str], santas: SantaDict):
 
     sender = MessageSender(email_config)
+
     for santa_name, recip_name in pairwise_cycle(gift_chain):
 
         santa = santas[santa_name]
         recipient = santas[recip_name]
 
-        print(f"Santa: {santa.name}, {santa.email_address}")
         sender.send_msg("Secret Santa!", santa.name, santa.email_address, recipient.name)

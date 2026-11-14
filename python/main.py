@@ -19,6 +19,10 @@ if __name__ == "__main__":
         help="Exclude 'history_size' recent years from potential matches",
         default=0,
     )
+    parser.add_argument("-e", "--email", action="store_true", help="Send email")
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="Don't write gift chiang to stdout"
+    )
 
     args = parser.parse_args()
 
@@ -29,5 +33,6 @@ if __name__ == "__main__":
         history_size=args.history_size,
         update_history=args.update,
         email_config=config,
-        send_email=False,
+        send_email=args.email,
+        quiet=args.quiet,
     )
